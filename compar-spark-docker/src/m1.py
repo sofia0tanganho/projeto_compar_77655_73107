@@ -83,4 +83,4 @@ def cleaning_stats(flagged):
 
 
 def clean(flagged):
-    return flagged.filter(~F.col("f_any")).drop(*FLAGS, "f_any")
+    return flagged.filter(~F.col("f_any")).drop(*FLAGS, "f_null", "f_any")
