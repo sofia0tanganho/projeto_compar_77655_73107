@@ -16,7 +16,7 @@ def _nsafe(cond):
     return F.coalesce(cond, F.lit(False))
 
 
-def flag_invalid(df, years = FALSE):
+def flag_invalid(df, years = None):
 
     missing= [c for c in REQUIRED_FIELDS if c not in df.columns]
     if missing:
