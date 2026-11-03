@@ -1,6 +1,6 @@
 from pyspark.sql import functions as F
 
-FLAGS = ["f_fare", "f_dist", "f_pax", "f_time", "f_zone"]
+FLAGS = ["f_fare", "f_dist", "f_pax", "f_time", "f_zone", "f_period"]
 
 REQUIRED_FIELDS = [
     "fare_amount",
@@ -16,7 +16,7 @@ def _nsafe(cond):
     return F.coalesce(cond, F.lit(False))
 
 
-def flag_invalid(df):
+def flag_invalid(df, years = FALSE):
 
     missing= [c for c in REQUIRED_FIELDS if c not in df.columns]
     if missing:
@@ -33,7 +33,12 @@ def flag_invalid(df):
                                      F.col("tpep_pickup_datetime")))
         .withColumn("f_zone", _nsafe(~F.col("PULocationID").between(1, 263) |
                                      ~F.col("DOLocationID").between(1, 263))))
-    
+
+    if yeras:
+        out_of_period = ~ F.year("tpep_pickup_datetime").isin(years)
+    else:
+        out_of_period = F.lit(FALSE)
+    flagged = flagged.withColumn("f_period", _nsafe(out_of_period))
     
     
     # any_flag = F.col(FLAGS[0])
@@ -73,6 +78,7 @@ def cleaning_stats(flagged):
                     ("f_pax", "pax"),
                     ("f_time", "time"),
                     ("f_zone", "zone"),
+                    ("f_period", "period")
                     ("f_null", "null"),
                     ("f_any", "any"),
                 ]
