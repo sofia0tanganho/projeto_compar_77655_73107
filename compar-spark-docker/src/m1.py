@@ -78,7 +78,7 @@ def cleaning_stats(flagged):
                     ("f_pax", "pax"),
                     ("f_time", "time"),
                     ("f_zone", "zone"),
-                    ("f_period", "period")
+                    ("f_period", "period"),
                     ("f_null", "null"),
                     ("f_any", "any"),
                 ]
