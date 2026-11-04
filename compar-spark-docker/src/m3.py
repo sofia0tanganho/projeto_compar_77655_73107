@@ -32,7 +32,7 @@ def build(trips, zones):
         .withColumn("prev_3m_std_trips", F.stddev("trips").over(zone_prev_3m))
         .withColumn("volume_anomaly", F.coalesce(
             F.abs(F.col("trips") - F.col("prev_3m_mean_trips")) >
-            DEVIATION_SIGMAS * F.col("prev_3m_std_trips"),
+            deviation_sigmas * F.col("prev_3m_std_trips"),
             F.lit(False)))
         .drop("month_idx"))  
 
