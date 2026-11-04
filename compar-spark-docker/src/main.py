@@ -1,11 +1,14 @@
-import sys
-import importlib
+
 from pyspark.sql import SparkSession, functions as F
 import argparse
 import glob
 from functools import reduce
 
 from m1 import flag_invalid, cleaning_stats, clean
+import m2
+import m3
+import o1, o2
+
 COLUMNS = {
     "tpep_pickup_datetime": "timestamp",
     "tpep_dropoff_datetime": "timestamp",
@@ -28,6 +31,8 @@ def load_zones(spark, path):
     return (spark.read.option("header", True).csv(path)
             .select(F.col("LocationID").cast("int"),
                     "Borough", "Zone", "service_zone"))
+
+
 def load_trips(spark, input_path, years, fraction=1.0):
     files = []
     for y in years:
@@ -47,8 +52,15 @@ def parse_args():
     p.add_argument("--years", type=int, nargs="+", default=[2025])
     p.add_argument("--fraction", type=float, default=1.0)
     p.add_argument("--output-path", default="output")
+    p.add_argument("--write-output", action="store_true",
+                   help="write real files; default uses the noop sink")
     return p.parse_args()
 
+def run(df, path, write):
+    if write:
+        df.write.mode("overwrite").parquet(path)
+    else:
+        df.write.format("noop").mode("overwrite").save()
 
 def main():
     args = parse_args()
@@ -57,7 +69,9 @@ def main():
              .getOrCreate())
     trips = load_trips(spark, args.input_path, args.years, args.fraction)
     trips.printSchema()
-    flagged = flag_invalid(trips)
+
+    #M1 related 
+    flagged = flag_invalid(trips, args.years)
     stats = cleaning_stats(flagged)
     stats.show()
     stats.coalesce(1).write.mode("overwrite").option("header", True).csv(
@@ -65,6 +79,27 @@ def main():
 
     trips_clean = clean(flagged)
     print("clean rows:", trips_clean.count())
+
+    #M2 related
+    demand = m2.build(trips_clean, zones)
+    m2.write(demand, args.output_path)
+
+    #M3 related
+    zone_stats = m3.build(trips_clean, zones)
+    run(zone_stats, f"{args.output_path}/m3_zone_month", args.write_output)
+
+    #O1 related
+    base = o1.addFarePerKm(trips_clean)
+    flagged1 = o1.flagAnomalies(base, o1.bucketStats(base))
+    rates = o1.anomaly_rates(flagged1, zones)
+    run(rates, f"{args.output_path}/o1_rates", args.write_output)
+
+    #O2 related
+    flows = o2.build_monthly_flows(trips_clean, zones)
+    top20 = o2.top_routes(flows, 20)
+    reversals = o2.share_reversals(flows)
+    o2.write(flows, top20, reversals, args.output_path if args.write_output else None)
+
     spark.stop()
 
 
