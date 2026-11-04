@@ -5,7 +5,7 @@ def build_monthly_flows(trips, zones):
     monthly= (trips
               .withColumn("year", F.year("tpep_pickup_datetime"))
               .withColumn("month", F.month("tpep_pickup_datetime"))
-              .groupBy("year","month", "PULocationID")
+              .groupBy("year","month", "PULocationID", "DOLocationID")
               .agg(F.count("*").alias("trips"))
               )
     
@@ -37,16 +37,16 @@ def top_routes(flows, n=20):
     window= Window.partitionBy("year", "month", "pickup_borough").orderBy(
         F.desc("trips")
     )
-    return (flows.withcolumns("route_rank", F.row_number().over(window)).filter(F.col("route_rank")<=n))
+    return (flows.withColumn("route_rank", F.row_number().over(window)).filter(F.col("route_rank")<=n))
 
 def share_reversals(flows):
-    route_years= flows.select("year", "PULocationID", "DOLocationID", "pickup_zone", "dropoff_borough").distinct()
+    route_years= flows.select("year", "PULocationID", "DOLocationID", "pickup_zone", "pickup_borough", "dropoff_zone","dropoff_borough").distinct()
 
     months= (route_years.select("year").distinct().withColumn("month", F.explode(F.sequence(F.lit(1), F.lit(12)))))
 
     grid= route_years.join(months, "year")
 
-    monthly_shares= flows.select("year", "month", "PULocationID", "route_share")
+    monthly_shares= flows.select("year", "month", "PULocationID", "DOLocationID","route_share")
 
     complete= (grid.join(monthly_shares, ["year", "month", "PULocationID", "DOLocationID"], "left").fillna({"route_share": 0.0}))
 
@@ -64,13 +64,9 @@ def share_reversals(flows):
             )
     return changes.filter(F.col("share_reversal"))
 
-def write(flows, top20, reversals, out_dir):
-    flows.write.mode("overwrite").partitionBy("year", "month").parquet(
-        f"{out_dir}/o2_monthly_flows"
-    )
-    top20.write.mode("overwrite").partitionBy("year", "month").parquet(
-        f"{out_dir}/o2_top20_routes"
-    )
-    reversals.write.mode("overwrite").partitionBy("year").parquet(
-        f"{out_dir}/o2_share_reversals"
-    )
+def write(flows, top20, reversals, out_dir=None):
+    for name, df in [("o2_monthly_flows", flows), ("o2_top20_routes", top20),("o2_share_reversals", reversals)]:
+        if out_dir:
+            df.write.mode("overwrite").parquet(f"{out_dir}/{name}")
+        else:
+            df.write.format("noop").mode("overwrite").save()
