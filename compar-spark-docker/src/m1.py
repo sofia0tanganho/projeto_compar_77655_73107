@@ -34,10 +34,10 @@ def flag_invalid(df, years = None):
         .withColumn("f_zone", _nsafe(~F.col("PULocationID").between(1, 263) |
                                      ~F.col("DOLocationID").between(1, 263))))
 
-    if yeras:
+    if years:
         out_of_period = ~ F.year("tpep_pickup_datetime").isin(years)
     else:
-        out_of_period = F.lit(FALSE)
+        out_of_period = F.lit(False)
     flagged = flagged.withColumn("f_period", _nsafe(out_of_period))
     
     
