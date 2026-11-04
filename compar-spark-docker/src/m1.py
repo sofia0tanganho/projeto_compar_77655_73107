@@ -5,7 +5,7 @@ FLAGS = ["f_fare", "f_dist", "f_pax", "f_time", "f_zone", "f_period"]
 REQUIRED_FIELDS = [
     "fare_amount",
     "trip_distance",
-    "passenger_count",
+    
     "tpep_pickup_datetime",
     "tpep_dropoff_datetime",
     "PULocationID",
