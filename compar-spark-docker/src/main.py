@@ -69,6 +69,7 @@ def main():
              .getOrCreate())
     trips = load_trips(spark, args.input_path, args.years, args.fraction)
     trips.printSchema()
+    zones = load_zones(spark, args.zone_lookup)
 
     #M1 related 
     flagged = flag_invalid(trips, args.years)
